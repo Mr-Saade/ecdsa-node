@@ -17,15 +17,21 @@ function Transfer({address, setBalance, privateKey, setPrivateKey}) {
       /*When we hit transfer, the client app should;
   -sign the transaction with the user privateKey
    -send the signed transaction signature to the server*/
+      const replacer = (key, value) =>
+        typeof value === "bigint" ? value.toString() : value;
       const transactionData = {
         senderAddress: address,
         recipient,
         amount: parseInt(sendAmount),
       };
       transactionJson = JSON.stringify(transactionData);
-      transactionSignature = secp256k1.sign(
+      const transactionSignatureBigInt = secp256k1.sign(
         keccak256(utf8ToBytes(transactionJson)),
         privateKey
+      );
+      transactionSignature = JSON.stringify(
+        transactionSignatureBigInt,
+        replacer
       );
     } catch (err) {
       console.error(err);
@@ -40,7 +46,7 @@ function Transfer({address, setBalance, privateKey, setPrivateKey}) {
       });
       setBalance(balance);
     } catch (ex) {
-      alert(ex.response.data.message);
+      alert(ex);
     }
   }
 

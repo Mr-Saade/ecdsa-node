@@ -24,19 +24,35 @@ let transactionData;
 app.post("/send", (req, res) => {
   /*- recover the publickey(user wallet address) from the signed transaction signature
   -transfer transaction should only go through if authorized by the server after derived publickey from signature */
-  console.log("Received request:", req.body);
-  const {transactionJson, transactionSignature} = req.body;
-  transactionData = JSON.parse(transactionJson);
-  const transactionHash = keccak256(utf8ToBytes(transactionJson));
-  const publicKey = transactionSignature
-    .recoverPublicKey(transactionHash)
-    .toRawBytes();
-  const senderAddress = keccak256(publicKey.slice(1)).slice(-20);
-  const isSigned = secp256k1.verify(
-    transactionSignature,
-    transactionHash,
-    publicKey
-  );
+  let transactionData, senderAddress, isSigned;
+  try {
+    const reviverBigInt = (key, value) =>
+      key === "r" || key === "s" || key === "recovery" ? BigInt(value) : value;
+    console.log("Received request:", req.body);
+    const {transactionJson, transactionSig} = req.body;
+    const transactionSignatureObject = JSON.parse(
+      transactionSig,
+      reviverBigInt
+    );
+    const transactionSignature = new secp256k1.Signature(
+      transactionSignatureObject.r,
+      transactionSignatureObject.s,
+      transactionSignatureObject.recovery
+    );
+    transactionData = JSON.parse(transactionJson);
+    const transactionHash = keccak256(utf8ToBytes(transactionJson));
+    const publicKey = transactionSignature
+      .recoverPublicKey(transactionHash)
+      .toRawBytes();
+    senderAddress = keccak256(publicKey.slice(1)).slice(-20);
+    isSigned = secp256k1.verify(
+      transactionSignature,
+      transactionHash,
+      publicKey
+    );
+  } catch (err) {
+    console.error(err);
+  }
   if (!isSigned || senderAddress != transactionData.senderAddress) {
     res.status(400).send({message: "Invalid signature. Authorization failed."});
     return;
